@@ -9,63 +9,14 @@ import {trace} from "@opentelemetry/api";
 
 admin.initializeApp();
 
-const TRACE_PARENT_REGEX = new RegExp(
-    "^(?<version>[\\da-f]{2})-" +
-  "(?<traceId>[\\da-f]{32})-" +
-  "(?<parentId>[\\da-f]{16})-" +
-  "(?<flag>[\\da-f]{2})$",
-);
-
-interface TraceParent {
-  version: string,
-  traceId: string,
-  parentId: string,
-  flag: string
-}
-
-function getTraceParent(o: any): TraceParent | undefined {
-  const traceParent = o["traceparent"];
-  if (!traceParent) {
-    return;
-  }
-  const matches = TRACE_PARENT_REGEX.exec(traceParent);
-  if (!matches || !matches.groups) {
-    return;
-  }
-  const {version, traceId, parentId, flag} = matches.groups;
-  return {version, traceId, parentId, flag};
-}
-
-function formatCloudTrace(traceId: string): string {
-  return `projects/${process.env.GCLOUD_PROJECT}/traces/${traceId}`;
-}
-
-interface LogContext {
-  "logging.googleapis.com/trace"?: string;
-}
-
-function createLogContext(o: any): LogContext {
-  const tp = getTraceParent(o);
-  const ctx: LogContext = {};
-  if (tp) {
-    ctx["logging.googleapis.com/trace"] = formatCloudTrace(tp.traceId);
-  }
-  return ctx;
-}
-
 const sleep = (sleepMs: number) => {
   return new Promise<void>((resolve) => {
     setTimeout(() => resolve(), sleepMs);
   });
 };
 
-export const reqv2 = onRequest(async (req, res) => {
-  logger.info("request headers:", {
-    ...req.headers,
-    ...createLogContext(req.headers),
-    // Pretty useless
-    ["logging.googleapis.com/labels"]: {functionName: process.env.K_SERVICE},
-  });
+export const reqv2 = onRequest({ maxInstances: 1 }, async (req, res) => {
+  logger.info("request headers:", req.headers);
 
   const db = getFirestore();
   const doc = db.collection("requests").doc();
@@ -84,12 +35,13 @@ export const reqv2 = onRequest(async (req, res) => {
   res.sendStatus(200);
 });
 
+export const reqv2simple = onRequest((req, res) => {
+  logger.info("request headers:", req.headers);
+  res.sendStatus(200);
+});
+
 export const rtdbv2 = onValueCreated("/foo/{id}", async (event) => {
-  logger.info("event headers:", {
-    ...event,
-    ...createLogContext(event),
-    ["logging.googleapis.com/labels"]: {functionName: process.env.K_SERVICE},
-  });
+  logger.info("event headers:", event);
 });
 
 export const rtdbv1 = functions.database.ref("/foo/{id}").onCreate((snap, ctx) => {

@@ -22,7 +22,7 @@
     "@opentelemetry/resource-detector-gcp": "^0.27.1",
     "@opentelemetry/sdk-node": "^0.31.0",
     "firebase-admin": "^10.0.2",
-    "firebase-functions": "^3.18.0"
+    "firebase-functions": "file:firebase-functions-3.22.0.tgz"
   },
   "devDependencies": {
     "@types/aws-sdk": "^2.7.0",
